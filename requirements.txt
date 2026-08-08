@@ -6,9 +6,13 @@ anthropic>=0.121              # Claude client for grounded, cited answers
 # Set ANTHROPIC_API_KEY (or run `ant auth login`) to enable LLM answers;
 # without credentials, answer.py falls back to extractive answers.
 
+# Week 4 (serving + demo)
+fastapi>=0.110                # HTTP service (src/api.py)
+uvicorn>=0.29                 # ASGI server
+requests>=2.31               # UI -> API client
+streamlit>=1.33              # demo UI (src/ui.py)
+
 # Week 2+/3 (add as you go)
 # sentence-transformers>=3.0   # dense embeddings (hybrid search)
 # faiss-cpu>=1.8               # vector index
-# fastapi>=0.110               # serving
-# uvicorn>=0.29
 # ragas>=0.2                   # evaluation harness

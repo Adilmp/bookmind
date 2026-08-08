@@ -1,0 +1,10 @@
+# Keep the image small and free of the copyrighted corpus.
+data/
+.git/
+.reference/
+evaluation/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env

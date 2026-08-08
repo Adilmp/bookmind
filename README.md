@@ -13,8 +13,8 @@ harness that measures how much the system hallucinates.
 - [x] **Week 2 — Answer generation.** Grounded, cited answers via Claude + refusal guardrail; extractive fallback when no API key. ✅ *working*
 - [x] **Week 2b — Concept maps.** Extract concepts + relations from a chapter → JSON / Mermaid / SVG; LLM path for labeled edges, offline fallback. ✅ *working*
 - [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
+- [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`, `/concept-map`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
 - [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
-- [ ] Week 4 — Deploy (FastAPI + Docker + demo)
 
 ## Evaluation results
 
@@ -37,6 +37,41 @@ pip install -r requirements.txt
 python src/ingest.py data/raw/your-book.epub       # -> data/chunks.jsonl
 python src/search.py "how do I stop overthinking"  # -> top passages with chapter citations
 python src/answer.py "how do I stop overthinking"  # -> grounded, cited answer (needs ANTHROPIC_API_KEY)
+```
+
+## Run the service (Week 4)
+
+BookMind ships as a small FastAPI service with a Streamlit demo on top. The index is
+built once at startup and shared across requests.
+
+```bash
+make api          # FastAPI on :8000  (docs at http://localhost:8000/docs)
+make ui           # Streamlit demo on :8501  (needs the API running)
+make run          # both together
+```
+
+Endpoints:
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/health` | — | index status, chunk/chapter counts |
+| POST | `/search` | `{query, k}` | ranked passages with chapter citations |
+| POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key) |
+| POST | `/concept-map` | `{chapter, top_n, format}` | concept graph as `json` \| `mermaid` \| `svg` |
+
+```bash
+curl -s localhost:8000/ask -H 'content-type: application/json' \
+  -d '{"query":"how do I stop overthinking?","k":5}' | jq .
+```
+
+### Docker
+
+The image contains **only code** — the copyrighted corpus stays git-ignored and is
+mounted at runtime.
+
+```bash
+make docker       # build
+make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 ```
 
 ## How it works (Week 1)
