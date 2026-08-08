@@ -10,7 +10,8 @@ harness that measures how much the system hallucinates.
 ## Status
 
 - [x] **Week 1 — Retrieval.** EPUB → clean citeable chunks → BM25 search → cited passages. ✅ *working*
-- [ ] Week 2 — Answer generation (LLM) + dense/hybrid retrieval + concept maps
+- [x] **Week 2 — Answer generation.** Grounded, cited answers via Claude + refusal guardrail; extractive fallback when no API key. ✅ *working*
+- [ ] Week 2b — dense/hybrid retrieval + concept maps
 - [ ] Week 3 — Evaluation harness (faithfulness, citation accuracy, RAG-vs-LLM baseline)
 - [ ] Week 4 — Deploy (FastAPI + Docker + demo)
 
@@ -18,8 +19,9 @@ harness that measures how much the system hallucinates.
 
 ```bash
 pip install -r requirements.txt
-python src/ingest.py data/raw/your-book.epub      # -> data/chunks.jsonl
+python src/ingest.py data/raw/your-book.epub       # -> data/chunks.jsonl
 python src/search.py "how do I stop overthinking"  # -> top passages with chapter citations
+python src/answer.py "how do I stop overthinking"  # -> grounded, cited answer (needs ANTHROPIC_API_KEY)
 ```
 
 ## How it works (Week 1)

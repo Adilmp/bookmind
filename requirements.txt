@@ -1,7 +1,12 @@
 # Week 1 (retrieval) — minimal
 beautifulsoup4>=4.12
 
-# Week 2+ (add as you go)
+# Week 2 (answer generation)
+anthropic>=0.121              # Claude client for grounded, cited answers
+# Set ANTHROPIC_API_KEY (or run `ant auth login`) to enable LLM answers;
+# without credentials, answer.py falls back to extractive answers.
+
+# Week 2+/3 (add as you go)
 # sentence-transformers>=3.0   # dense embeddings (hybrid search)
 # faiss-cpu>=1.8               # vector index
 # fastapi>=0.110               # serving
