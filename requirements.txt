@@ -1,0 +1,9 @@
+# Week 1 (retrieval) — minimal
+beautifulsoup4>=4.12
+
+# Week 2+ (add as you go)
+# sentence-transformers>=3.0   # dense embeddings (hybrid search)
+# faiss-cpu>=1.8               # vector index
+# fastapi>=0.110               # serving
+# uvicorn>=0.29
+# ragas>=0.2                   # evaluation harness

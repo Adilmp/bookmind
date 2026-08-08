@@ -1,0 +1,11 @@
+# Copyrighted source text — never commit the book or text derived from it
+data/raw/
+data/chunks.jsonl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.reference/
