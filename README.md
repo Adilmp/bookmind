@@ -74,13 +74,18 @@ make docker       # build
 make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 ```
 
-## How it works (Week 1)
+## How it works — component map
 
-| Step | File | What it does |
+| Component | File | What it does |
 |---|---|---|
 | Ingest | `src/ingest.py` | Parses the EPUB in reading order, extracts clean paragraphs, splits into ~180-word overlapping chunks, tags each with its chapter (from the TOC). |
-| Rank | `src/bm25.py` | BM25 implemented from scratch (TF saturation + length normalisation). |
+| Rank | `src/bm25.py` | BM25 implemented from scratch (TF saturation + length normalisation) — not imported. |
 | Search | `src/search.py` | Builds the index and returns the top passages for a query, each with a citation. |
+| Answer | `src/answer.py` | Grounded, cited answer generation via Claude, with a refusal guardrail; extractive fallback when no API key. |
+| Concept map | `src/concept_map.py` | Extracts concepts + relations from a chapter → JSON / Mermaid / SVG (LLM path for labeled edges, offline co-occurrence fallback). |
+| Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
+| Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
+| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" and "Concept map" tabs. |
 
 ## Data & copyright
 
