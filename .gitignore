@@ -9,3 +9,8 @@ __pycache__/
 venv/
 .env
 .reference/
+
+# Concept map output (regenerated per run)
+data/concept_map.json
+data/concept_map.mmd
+data/concept_map.svg

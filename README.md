@@ -11,7 +11,8 @@ harness that measures how much the system hallucinates.
 
 - [x] **Week 1 — Retrieval.** EPUB → clean citeable chunks → BM25 search → cited passages. ✅ *working*
 - [x] **Week 2 — Answer generation.** Grounded, cited answers via Claude + refusal guardrail; extractive fallback when no API key. ✅ *working*
-- [ ] Week 2b — dense/hybrid retrieval + concept maps
+- [x] **Week 2b — Concept maps.** Extract concepts + relations from a chapter → JSON / Mermaid / SVG; LLM path for labeled edges, offline fallback. ✅ *working*
+- [ ] Week 2c — dense/hybrid retrieval
 - [ ] Week 3 — Evaluation harness (faithfulness, citation accuracy, RAG-vs-LLM baseline)
 - [ ] Week 4 — Deploy (FastAPI + Docker + demo)
 
