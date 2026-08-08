@@ -12,9 +12,23 @@ harness that measures how much the system hallucinates.
 - [x] **Week 1 — Retrieval.** EPUB → clean citeable chunks → BM25 search → cited passages. ✅ *working*
 - [x] **Week 2 — Answer generation.** Grounded, cited answers via Claude + refusal guardrail; extractive fallback when no API key. ✅ *working*
 - [x] **Week 2b — Concept maps.** Extract concepts + relations from a chapter → JSON / Mermaid / SVG; LLM path for labeled edges, offline fallback. ✅ *working*
-- [ ] Week 2c — dense/hybrid retrieval
-- [ ] Week 3 — Evaluation harness (faithfulness, citation accuracy, RAG-vs-LLM baseline)
+- [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
+- [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
 - [ ] Week 4 — Deploy (FastAPI + Docker + demo)
+
+## Evaluation results
+
+Run `python src/evaluate.py` (16-question gold set: 12 answerable + 4 adversarial).
+
+| Metric | Result | Needs key? |
+|---|---|---|
+| Retrieval Recall@5 (BM25) | **83%** | no |
+| Retrieval MRR | **0.688** | no |
+| Citation accuracy | *(run with key)* | yes |
+| Refusal correctness (adversarial) | *(run with key)* | yes |
+| Hallucination rate: RAG vs closed-book | *(run with key)* | yes |
+
+The citation checker is deterministic (verifies each `[Chapter]` against real chapters) and runs even without a key.
 
 ## Quickstart
 
