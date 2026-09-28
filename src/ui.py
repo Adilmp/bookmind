@@ -42,9 +42,9 @@ with ask_tab:
     q = st.text_input("Question", "How do I stop overthinking on the court?")
     k = st.slider("Passages to retrieve (k)", 1, 10, 5)
     if st.button("Ask", type="primary"):
-        with st.spinner("Retrieving passages and composing a grounded answer…"):
+        with st.spinner("Retrieving passages and composing a grounded answer (a local model can take ~2 minutes)…"):
             try:
-                r = requests.post(f"{API}/ask", json={"query": q, "k": k}, timeout=60).json()
+                r = requests.post(f"{API}/ask", json={"query": q, "k": k}, timeout=300).json()
             except Exception as e:
                 st.error(f"Request failed: {e}")
                 r = None
@@ -61,12 +61,12 @@ with map_tab:
     chapter = st.text_input("Chapter (blank = whole book)", "")
     top_n = st.slider("Max concepts", 3, 30, 12)
     if st.button("Build concept map", type="primary"):
-        with st.spinner("Extracting concepts and relations…"):
+        with st.spinner("Extracting concepts and relations (a local model can take several minutes)…"):
             try:
                 r = requests.post(
                     f"{API}/concept-map",
                     json={"chapter": chapter or None, "top_n": top_n, "format": "svg"},
-                    timeout=120,
+                    timeout=660,  # a local model on a CPU can take several minutes
                 ).json()
             except Exception as e:
                 st.error(f"Request failed: {e}")

@@ -4,7 +4,7 @@ api.py — Week 4: serve BookMind as a small HTTP service.
 Wraps the pieces built in Weeks 1–2b behind a FastAPI app:
   GET  /health            -> is the index loaded? how many chunks / chapters?
   POST /search  {query,k} -> ranked passages with chapter citations (BM25)
-  POST /ask     {query,k} -> grounded, cited answer (Claude, extractive fallback)
+  POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback)
   POST /concept-map {chapter, top_n, format} -> concept graph (json | mermaid | svg)
 
 Design note: the BM25 index is built ONCE at startup and shared across requests
@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 import answer as answer_mod
 import concept_map as cmap
+import llm
 from search import BookSearch
 
 app = FastAPI(
@@ -92,8 +93,8 @@ def ask(req: AskRequest):
     hits = bs.search(req.query, k=req.k)
     try:
         text = answer_mod._llm_answer(req.query, hits)
-        mode = f"LLM ({answer_mod.MODEL})"
-    except Exception as e:  # no SDK / no key / network -> extractive fallback
+        mode = f"LLM ({llm.provider()}: {llm.model_name()})"
+    except Exception as e:  # no key / Ollama down / network / timeout -> extractive fallback
         text = answer_mod._extractive_answer(req.query, hits)
         mode = f"extractive (LLM unavailable: {type(e).__name__})"
     return {"query": req.query, "answer": text, "mode": mode, "sources": hits}

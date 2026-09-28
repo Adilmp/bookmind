@@ -1,0 +1,98 @@
+"""
+llm.py — the one place that talks to a language model.
+
+Two backends behind one function, chat(system, user):
+  - "anthropic": Claude via the Anthropic SDK (needs ANTHROPIC_API_KEY)
+  - "ollama":    a local model through Ollama's HTTP API (free, private; needs `ollama serve`)
+
+Choose with BOOKMIND_PROVIDER=anthropic|ollama. The default, "auto", uses Claude when an API
+key is set and Ollama otherwise. Any failure raises an exception, so every caller can fall
+back to its offline mode (extractive answers, co-occurrence concept maps).
+
+Settings (environment variables):
+  BOOKMIND_PROVIDER        auto | anthropic | ollama          (default auto)
+  BOOKMIND_MODEL           Claude model                        (default claude-opus-5)
+  BOOKMIND_OLLAMA_MODEL    Ollama model                        (default qwen2.5:7b)
+  BOOKMIND_OLLAMA_URL      where Ollama listens                (default http://127.0.0.1:11434)
+  BOOKMIND_OLLAMA_TIMEOUT  seconds to wait for a local answer  (default 600; on a CPU a
+                           concept map took ~4.5 minutes with qwen2.5:7b)
+"""
+import json
+import os
+import urllib.request
+
+PROVIDER = os.environ.get("BOOKMIND_PROVIDER", "auto")
+CLAUDE_MODEL = os.environ.get("BOOKMIND_MODEL", "claude-opus-5")
+OLLAMA_MODEL = os.environ.get("BOOKMIND_OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_URL = os.environ.get("BOOKMIND_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_TIMEOUT_S = float(os.environ.get("BOOKMIND_OLLAMA_TIMEOUT", "600"))
+
+
+def provider():
+    """Which backend chat() will use."""
+    if PROVIDER != "auto":
+        return PROVIDER
+    has_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    return "anthropic" if has_key else "ollama"
+
+
+def model_name():
+    """The model chat() will call, for labels like "LLM (ollama: qwen2.5:7b)"."""
+    return CLAUDE_MODEL if provider() == "anthropic" else OLLAMA_MODEL
+
+
+def available():
+    """True if the chosen backend looks usable, without spending a model call."""
+    if provider() == "anthropic":
+        return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_URL}/api/version", timeout=3):
+            return True
+    except OSError:
+        return False
+
+
+def chat(system, user, max_tokens=1024, temperature=0.0):
+    """Send one system prompt + one user message; return the model's text."""
+    backend = provider()
+    if backend == "anthropic":
+        return _claude(system, user, max_tokens, temperature)
+    if backend == "ollama":
+        return _ollama(system, user, max_tokens, temperature)
+    raise ValueError(f"unknown BOOKMIND_PROVIDER: {backend!r} (use anthropic or ollama)")
+
+
+def _claude(system, user, max_tokens, temperature):
+    import anthropic
+
+    client = anthropic.Anthropic()  # resolves ANTHROPIC_API_KEY or an `ant` profile
+    resp = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    return "".join(b.text for b in resp.content if b.type == "text").strip()
+
+
+def _ollama(system, user, max_tokens, temperature):
+    body = {
+        "model": OLLAMA_MODEL,
+        "stream": False,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        # num_ctx: Ollama's default context window can be smaller than five passages
+        # plus instructions; 8192 tokens keeps the prompt from being silently cut.
+        "options": {"temperature": temperature, "num_predict": max_tokens, "num_ctx": 8192},
+    }
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}/api/chat",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_S) as resp:
+        payload = json.load(resp)
+    return payload["message"]["content"].strip()

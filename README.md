@@ -36,8 +36,32 @@ The citation checker is deterministic (verifies each `[Chapter]` against real ch
 pip install -r requirements.txt
 python src/ingest.py data/raw/your-book.epub       # -> data/chunks.jsonl
 python src/search.py "how do I stop overthinking"  # -> top passages with chapter citations
-python src/answer.py "how do I stop overthinking"  # -> grounded, cited answer (needs ANTHROPIC_API_KEY)
+python src/answer.py "how do I stop overthinking"  # -> grounded, cited answer (Claude key or local Ollama)
 ```
+
+## Use a local model (Ollama) instead of Claude
+
+Answers, concept maps and the answer-level evaluation can run on a free local model. `src/llm.py`
+is the only file that talks to a model: it uses Claude when `ANTHROPIC_API_KEY` is set and Ollama
+otherwise (force one with `BOOKMIND_PROVIDER=anthropic|ollama`).
+
+```bash
+ollama pull qwen2.5:7b          # once
+ollama serve                    # leave running
+make api                        # answers now come from qwen2.5:7b
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `BOOKMIND_PROVIDER` | `auto` | `anthropic`, `ollama`, or `auto` (Claude if a key is set) |
+| `BOOKMIND_OLLAMA_MODEL` | `qwen2.5:7b` | any model you've pulled |
+| `BOOKMIND_OLLAMA_URL` | `http://127.0.0.1:11434` | where Ollama listens |
+| `BOOKMIND_OLLAMA_TIMEOUT` | `600` | seconds to wait for a local answer |
+
+Measured on a laptop CPU with `qwen2.5:7b`: a cited answer took 27 s to 2 min and an off-topic
+question was correctly refused ("I couldn't find this in the book."); a chapter concept map took
+about 4.5 minutes. `qwen2.5:0.5b` answered in 17 s but copied the passage instead of answering.
+If Ollama isn't running, BookMind falls back to its offline modes as before.
 
 ## Run the service (Week 4)
 

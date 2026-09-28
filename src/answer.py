@@ -1,23 +1,22 @@
 """
 answer.py — Week 2: turn retrieved passages into a grounded, cited ANSWER.
 
-Pipeline:  question -> BM25 retrieval -> grounded prompt -> Claude -> cited answer
+Pipeline:  question -> BM25 retrieval -> grounded prompt -> LLM -> cited answer
 Guardrail: the model is instructed to answer ONLY from the retrieved passages and
 to say it couldn't find the answer rather than inventing one (the hallucination
 guardrail that Week 3's evaluation will measure).
 
-Credentials: uses a zero-arg Anthropic() client, which resolves ANTHROPIC_API_KEY
-(or an `ant auth login` profile) from the environment. If no credentials are
-available, it falls back to an EXTRACTIVE answer (stitched from the top passages)
+Model: llm.py picks the backend: Claude when ANTHROPIC_API_KEY is set, otherwise a
+local model through Ollama (see llm.py for the settings). If the model can't be
+reached, it falls back to an EXTRACTIVE answer (the top passage with its citation)
 so the pipeline still runs end-to-end.
 
 Run:  python src/answer.py "how do I stop overthinking on the court?"
 """
-import os
 import sys
-from search import BookSearch
 
-MODEL = os.environ.get("BOOKMIND_MODEL", "claude-opus-5")
+import llm
+from search import BookSearch
 
 SYSTEM_PROMPT = """You are a careful study assistant for a single book. Follow these rules exactly:
 - Answer ONLY using the numbered passages provided. Do not use outside knowledge.
@@ -44,29 +43,20 @@ def _extractive_answer(query, hits):
     if len(snippet) > 400:
         snippet = snippet[:400].rsplit(" ", 1)[0] + " …"
     return (
-        f"(extractive fallback — no LLM credentials found)\n"
+        f"(extractive fallback — no language model available)\n"
         f"Most relevant passage [{top['chapter']}]:\n{snippet}"
     )
 
 
 def _llm_answer(query, hits):
-    """Grounded generation with Claude. Raises if the SDK/credentials are unavailable."""
-    import anthropic
-
-    client = anthropic.Anthropic()  # resolves ANTHROPIC_API_KEY or an `ant` profile
+    """Grounded generation with the configured LLM. Raises if it can't be reached."""
     context = build_context(hits)
     user_msg = (
         f"Passages from the book:\n\n{context}\n\n"
         f"Question: {query}\n\n"
         f"Answer using only the passages above, citing chapters in [brackets]."
     )
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
-    )
-    return "".join(b.text for b in resp.content if b.type == "text").strip()
+    return llm.chat(SYSTEM_PROMPT, user_msg, max_tokens=2048)
 
 
 def answer(query, k=5):
@@ -75,8 +65,8 @@ def answer(query, k=5):
     hits = bs.search(query, k=k)
     try:
         text = _llm_answer(query, hits)
-        mode = f"LLM ({MODEL})"
-    except Exception as e:  # missing SDK, no credentials, network, etc.
+        mode = f"LLM ({llm.provider()}: {llm.model_name()})"
+    except Exception as e:  # no key, Ollama not running, network, timeout, etc.
         text = _extractive_answer(query, hits)
         mode = f"extractive (LLM unavailable: {type(e).__name__})"
     return {"answer": text, "mode": mode, "sources": hits}

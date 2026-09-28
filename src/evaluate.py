@@ -83,23 +83,19 @@ def retrieval_metrics(gold, k=5):
 # ---------- tier 2: answer metrics (needs an LLM key) ----------
 
 def llm_available():
-    """True if credentials are present. (This SDK defers the auth error to
-    request time, so construction alone can't tell us — check the environment.)"""
-    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+    """True if the configured model (Claude with a key, or a running Ollama) is usable."""
+    import llm
+    return llm.available()
 
 
 def _closed_book_answer(query):
     """LLM with NO retrieval — the baseline RAG should beat on hallucination."""
-    import anthropic
-    client = anthropic.Anthropic()
-    model = os.environ.get("BOOKMIND_MODEL", "claude-opus-5")
-    resp = client.messages.create(
-        model=model, max_tokens=512,
-        system=('Answer only from "The Inner Game of Tennis" by W. Timothy Gallwey. '
-                f'If it is not covered in that book, reply exactly: "{REFUSAL}"'),
-        messages=[{"role": "user", "content": query}],
+    import llm
+    return llm.chat(
+        'Answer only from "The Inner Game of Tennis" by W. Timothy Gallwey. '
+        f'If it is not covered in that book, reply exactly: "{REFUSAL}"',
+        query, max_tokens=512,
     )
-    return "".join(b.text for b in resp.content if b.type == "text").strip()
 
 
 def answer_metrics(gold):
@@ -166,5 +162,5 @@ if __name__ == "__main__":
         print(f"    Hallucination rate — RAG: {am['rag_hallucination_rate']:.0%}"
               f"   vs closed-book: {am['closed_book_hallucination_rate']:.0%}\n")
     else:
-        print("  ANSWER (LLM): skipped — set ANTHROPIC_API_KEY to run these metrics.\n")
+        print("  ANSWER (LLM): skipped — set ANTHROPIC_API_KEY or start Ollama to run these metrics.\n")
         _demo_citation_checker()

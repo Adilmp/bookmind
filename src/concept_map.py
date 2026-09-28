@@ -2,7 +2,8 @@
 concept_map.py — Week 2b: turn a chapter (or the whole book) into a concept map.
 
 Two extraction paths (same pattern as answer.py):
-  - LLM path: Claude extracts concept -> relation -> concept triples (labeled edges).
+  - LLM path: the configured LLM (Claude or Ollama, see llm.py) extracts
+    concept -> relation -> concept triples (labeled edges).
   - Offline path: frequency + co-occurrence over the chunks (no credentials needed),
     so the feature runs and is testable end-to-end today.
 
@@ -23,8 +24,7 @@ from collections import Counter
 from itertools import combinations
 from search import load_chunks
 from bm25 import tokenize
-
-MODEL = os.environ.get("BOOKMIND_MODEL", "claude-opus-5")
+import llm
 
 STOPWORDS = set("""
 a an the and or but if then else when while of to in on at by for with from into
@@ -78,9 +78,6 @@ def extract_offline(chunks, top_n=12):
 # ---------- LLM extraction (labeled relations) ----------
 
 def extract_llm(chunks, top_n=12):
-    import anthropic
-
-    client = anthropic.Anthropic()
     text = "\n\n".join(c["text"] for c in chunks)[:12000]  # keep the prompt bounded
     prompt = (
         "Extract the key ideas of the following book text as a concept map.\n"
@@ -89,13 +86,12 @@ def extract_llm(chunks, top_n=12):
         "Use short concept labels (1-3 words). No prose, JSON only.\n\n"
         f"TEXT:\n{text}"
     )
-    resp = client.messages.create(
-        model=MODEL, max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = "".join(b.text for b in resp.content if b.type == "text").strip()
+    raw = llm.chat("You turn book text into concept maps. Reply with JSON only.", prompt, max_tokens=2048)
     raw = re.sub(r"^```(?:json)?|```$", "", raw, flags=re.MULTILINE).strip()
     triples = json.loads(raw)
+    if isinstance(triples, dict):  # some models wrap the list, e.g. {"concept_map": [...]}
+        triples = next((v for v in triples.values() if isinstance(v, list)), [])
+    triples = triples[:top_n]  # the prompt asks for at most top_n, but models don't always obey
     nodes = {}
     edges = []
     for t in triples:
@@ -159,7 +155,7 @@ def build(chapter=None, top_n=12):
         chunks = sel or chunks
     try:
         graph = extract_llm(chunks, top_n)
-        mode = f"LLM ({MODEL})"
+        mode = f"LLM ({llm.provider()}: {llm.model_name()})"
     except Exception as e:
         graph = extract_offline(chunks, top_n)
         mode = f"offline (LLM unavailable: {type(e).__name__})"
