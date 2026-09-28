@@ -7,15 +7,15 @@ Two backends behind one function, chat(system, user):
 
 Choose with BOOKMIND_PROVIDER=anthropic|ollama. The default, "auto", uses Claude when an API
 key is set and Ollama otherwise. Any failure raises an exception, so every caller can fall
-back to its offline mode (extractive answers, co-occurrence concept maps).
+back to its offline mode (e.g. extractive answers).
 
 Settings (environment variables):
   BOOKMIND_PROVIDER        auto | anthropic | ollama          (default auto)
   BOOKMIND_MODEL           Claude model                        (default claude-opus-5)
   BOOKMIND_OLLAMA_MODEL    Ollama model                        (default qwen2.5:7b)
   BOOKMIND_OLLAMA_URL      where Ollama listens                (default http://127.0.0.1:11434)
-  BOOKMIND_OLLAMA_TIMEOUT  seconds to wait for a local answer  (default 600; on a CPU a
-                           concept map took ~4.5 minutes with qwen2.5:7b)
+  BOOKMIND_OLLAMA_TIMEOUT  seconds to wait for a local answer  (default 600; a 7B model
+                           on a laptop CPU took up to ~2 minutes per answer)
 """
 import json
 import os

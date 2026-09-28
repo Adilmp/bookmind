@@ -1,8 +1,7 @@
 """
 ui.py — Week 4: a small Streamlit demo over the BookMind API.
 
-Two tabs: "Ask" (grounded, cited answers) and "Concept map" (the visual
-differentiator). The UI is a thin client — it talks to the FastAPI service over
+Tabs: "Ask" (grounded, cited answers). The UI is a thin client — it talks to the FastAPI service over
 HTTP, so the same backend powers the demo, curl, and any future frontend.
 
 Run:  streamlit run src/ui.py
@@ -17,8 +16,7 @@ API = os.environ.get("BOOKMIND_API", "http://localhost:8000").rstrip("/")
 
 st.set_page_config(page_title="BookMind", page_icon="📖", layout="wide")
 st.title("📖 BookMind")
-st.caption("Ask questions across a book — answers grounded in **cited passages**, "
-           "plus an auto-generated **concept map**.")
+st.caption("Ask questions across a book — answers grounded in **cited passages**.")
 
 
 @st.cache_data(ttl=5)
@@ -36,7 +34,7 @@ else:
     st.sidebar.error(f"API {h.get('status', '?')}: {h.get('detail', '')}")
     st.sidebar.caption(f"Backend: {API}")
 
-ask_tab, map_tab = st.tabs(["Ask", "Concept map"])
+(ask_tab,) = st.tabs(["Ask"])
 
 with ask_tab:
     q = st.text_input("Question", "How do I stop overthinking on the court?")
@@ -56,21 +54,3 @@ with ask_tab:
                     st.markdown(f"**[{i}] « {s['chapter']} »** · chunk #{s['chunk_id']} "
                                 f"· score {s['score']}")
                     st.write(s["text"])
-
-with map_tab:
-    chapter = st.text_input("Chapter (blank = whole book)", "")
-    top_n = st.slider("Max concepts", 3, 30, 12)
-    if st.button("Build concept map", type="primary"):
-        with st.spinner("Extracting concepts and relations (a local model can take several minutes)…"):
-            try:
-                r = requests.post(
-                    f"{API}/concept-map",
-                    json={"chapter": chapter or None, "top_n": top_n, "format": "svg"},
-                    timeout=660,  # a local model on a CPU can take several minutes
-                ).json()
-            except Exception as e:
-                st.error(f"Request failed: {e}")
-                r = None
-        if r:
-            st.caption(f"mode: {r['mode']}")
-            st.image(r["svg"])

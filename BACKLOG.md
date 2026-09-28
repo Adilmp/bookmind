@@ -7,7 +7,7 @@ it goes here instead of derailing the build. Ship first, expand later.
 - [ ] LLM answer generation over retrieved chunks (grounded, with inline citations)
 - [ ] Refusal guardrail: answer "not in this book" instead of hallucinating
 - [ ] Dense embeddings (BGE-M3) + **hybrid** BM25 + dense retrieval; compare on eval set
-- [ ] Concept-map generation: extract concept→relation→concept triples → interactive graph
+- [x] ~~Concept-map generation~~: built, then dropped (not useful to readers)
 
 ## Week 3
 - [ ] Gold Q&A set (~40–60 questions with reference passages)
@@ -16,7 +16,7 @@ it goes here instead of derailing the build. Ship first, expand later.
 
 ## Week 4
 - [ ] FastAPI service + Dockerfile + one-command run
-- [ ] Streamlit / HF Space demo (Q&A + concept map)
+- [ ] Streamlit / HF Space demo (Q&A)
 - [ ] README results table + demo GIF + LinkedIn write-up
 
 ## Later / maybe

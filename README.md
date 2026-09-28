@@ -1,8 +1,7 @@
 # BookMind
 
-Ask questions across a book and get answers grounded in **cited passages** — plus (soon)
-an auto-generated visual **concept map** of its ideas, and a **faithfulness evaluation**
-harness that measures how much the system hallucinates.
+Ask questions across a book and get answers grounded in **cited passages**, plus a
+**faithfulness evaluation** harness that measures how much the system hallucinates.
 
 > Built as a from-scratch RAG project: the retriever (BM25) is implemented by hand, not imported,
 > so every part is understood, not magic.
@@ -11,9 +10,9 @@ harness that measures how much the system hallucinates.
 
 - [x] **Week 1 — Retrieval.** EPUB → clean citeable chunks → BM25 search → cited passages. ✅ *working*
 - [x] **Week 2 — Answer generation.** Grounded, cited answers via Claude + refusal guardrail; extractive fallback when no API key. ✅ *working*
-- [x] **Week 2b — Concept maps.** Extract concepts + relations from a chapter → JSON / Mermaid / SVG; LLM path for labeled edges, offline fallback. ✅ *working*
+- [x] **Week 2b — Concept maps.** Built, then **removed**: the graphs (word co-occurrence, or LLM triples from a truncated prompt) gave readers nothing they could act on.
 - [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
-- [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`, `/concept-map`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
+- [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
 - [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
 
 ## Evaluation results
@@ -41,7 +40,7 @@ python src/answer.py "how do I stop overthinking"  # -> grounded, cited answer (
 
 ## Use a local model (Ollama) instead of Claude
 
-Answers, concept maps and the answer-level evaluation can run on a free local model. `src/llm.py`
+Answers and the answer-level evaluation can run on a free local model. `src/llm.py`
 is the only file that talks to a model: it uses Claude when `ANTHROPIC_API_KEY` is set and Ollama
 otherwise (force one with `BOOKMIND_PROVIDER=anthropic|ollama`).
 
@@ -59,8 +58,7 @@ make api                        # answers now come from qwen2.5:7b
 | `BOOKMIND_OLLAMA_TIMEOUT` | `600` | seconds to wait for a local answer |
 
 Measured on a laptop CPU with `qwen2.5:7b`: a cited answer took 27 s to 2 min and an off-topic
-question was correctly refused ("I couldn't find this in the book."); a chapter concept map took
-about 4.5 minutes. `qwen2.5:0.5b` answered in 17 s but copied the passage instead of answering.
+question was correctly refused ("I couldn't find this in the book."). `qwen2.5:0.5b` answered in 17 s but copied the passage instead of answering.
 If Ollama isn't running, BookMind falls back to its offline modes as before.
 
 ## Run the service (Week 4)
@@ -81,7 +79,6 @@ Endpoints:
 | GET | `/health` | — | index status, chunk/chapter counts |
 | POST | `/search` | `{query, k}` | ranked passages with chapter citations |
 | POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key) |
-| POST | `/concept-map` | `{chapter, top_n, format}` | concept graph as `json` \| `mermaid` \| `svg` |
 
 ```bash
 curl -s localhost:8000/ask -H 'content-type: application/json' \
@@ -105,11 +102,11 @@ make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 | Ingest | `src/ingest.py` | Parses the EPUB in reading order, extracts clean paragraphs, splits into ~180-word overlapping chunks, tags each with its chapter (from the TOC). |
 | Rank | `src/bm25.py` | BM25 implemented from scratch (TF saturation + length normalisation) — not imported. |
 | Search | `src/search.py` | Builds the index and returns the top passages for a query, each with a citation. |
-| Answer | `src/answer.py` | Grounded, cited answer generation via Claude, with a refusal guardrail; extractive fallback when no API key. |
-| Concept map | `src/concept_map.py` | Extracts concepts + relations from a chapter → JSON / Mermaid / SVG (LLM path for labeled edges, offline co-occurrence fallback). |
+| Answer | `src/answer.py` | Grounded, cited answer generation with a refusal guardrail; extractive fallback when no model is reachable. |
+| Model | `src/llm.py` | The only file that calls a model: Claude with an API key, otherwise a local Ollama model. |
 | Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
 | Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
-| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" and "Concept map" tabs. |
+| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" tab. |
 
 ## Data & copyright
 

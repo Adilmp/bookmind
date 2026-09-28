@@ -1,11 +1,10 @@
 """
 api.py — Week 4: serve BookMind as a small HTTP service.
 
-Wraps the pieces built in Weeks 1–2b behind a FastAPI app:
+Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   GET  /health            -> is the index loaded? how many chunks / chapters?
   POST /search  {query,k} -> ranked passages with chapter citations (BM25)
   POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback)
-  POST /concept-map {chapter, top_n, format} -> concept graph (json | mermaid | svg)
 
 Design note: the BM25 index is built ONCE at startup and shared across requests
 (the CLI in answer.py rebuilds it per call — fine for a script, wasteful for a server).
@@ -20,7 +19,6 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 import answer as answer_mod
-import concept_map as cmap
 import llm
 from search import BookSearch
 
@@ -64,12 +62,6 @@ class AskRequest(BaseModel):
     k: int = Field(5, ge=1, le=20)
 
 
-class ConceptMapRequest(BaseModel):
-    chapter: str | None = Field(None, description="Substring match; omit for whole book.")
-    top_n: int = Field(12, ge=3, le=30)
-    format: str = Field("json", pattern="^(json|mermaid|svg)$")
-
-
 # ---- endpoints ---------------------------------------------------------------
 
 @app.get("/health")
@@ -98,23 +90,6 @@ def ask(req: AskRequest):
         text = answer_mod._extractive_answer(req.query, hits)
         mode = f"extractive (LLM unavailable: {type(e).__name__})"
     return {"query": req.query, "answer": text, "mode": mode, "sources": hits}
-
-
-@app.post("/concept-map")
-def concept_map(req: ConceptMapRequest):
-    _require_index()  # ensure the corpus exists; build() loads chunks itself
-    try:
-        graph, mode = cmap.build(req.chapter, top_n=req.top_n)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
-    payload = {"chapter": req.chapter, "mode": mode, "format": req.format}
-    if req.format == "mermaid":
-        payload["mermaid"] = cmap.to_mermaid(graph)
-    elif req.format == "svg":
-        payload["svg"] = cmap.to_svg(graph)
-    else:
-        payload["graph"] = graph
-    return payload
 
 
 def _require_index() -> BookSearch:
