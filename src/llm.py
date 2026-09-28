@@ -16,6 +16,7 @@ Settings (environment variables):
   BOOKMIND_OLLAMA_URL      where Ollama listens                (default http://127.0.0.1:11434)
   BOOKMIND_OLLAMA_TIMEOUT  seconds to wait for a local answer  (default 600; a 7B model
                            on a laptop CPU took up to ~2 minutes per answer)
+  BOOKMIND_EMBED_MODEL     Ollama embedding model for verify.py (default nomic-embed-text)
 """
 import json
 import os
@@ -26,6 +27,7 @@ CLAUDE_MODEL = os.environ.get("BOOKMIND_MODEL", "claude-opus-5")
 OLLAMA_MODEL = os.environ.get("BOOKMIND_OLLAMA_MODEL", "qwen2.5:7b")
 OLLAMA_URL = os.environ.get("BOOKMIND_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_TIMEOUT_S = float(os.environ.get("BOOKMIND_OLLAMA_TIMEOUT", "600"))
+EMBED_MODEL = os.environ.get("BOOKMIND_EMBED_MODEL", "nomic-embed-text")
 
 
 def provider():
@@ -96,3 +98,19 @@ def _ollama(system, user, max_tokens, temperature):
     with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_S) as resp:
         payload = json.load(resp)
     return payload["message"]["content"].strip()
+
+
+def embed(texts, timeout=120):
+    """Embedding vectors for `texts` from a local Ollama embedding model (one request).
+
+    Embeddings always come from Ollama, even when answers come from Claude, because the
+    Anthropic API has no embedding endpoint. Raises if Ollama is unreachable.
+    """
+    body = {"model": EMBED_MODEL, "input": list(texts)}
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}/api/embed",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp)["embeddings"]

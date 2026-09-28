@@ -4,7 +4,8 @@ api.py — Week 4: serve BookMind as a small HTTP service.
 Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   GET  /health            -> is the index loaded? how many chunks / chapters?
   POST /search  {query,k} -> ranked passages with chapter citations (BM25)
-  POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback)
+  POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback),
+                             with every sentence checked against the passages (verify.py)
   POST /timeline {idea}  -> where an idea appears, chapter by chapter (no model, instant)
 
 Design note: the BM25 index is built ONCE at startup and shared across requests
@@ -22,6 +23,7 @@ from pydantic import BaseModel, Field
 import answer as answer_mod
 import llm
 import timeline as timeline_mod
+import verify
 from search import BookSearch
 
 app = FastAPI(
@@ -93,10 +95,12 @@ def ask(req: AskRequest):
     try:
         text = answer_mod._llm_answer(req.query, hits)
         mode = f"LLM ({llm.provider()}: {llm.model_name()})"
+        support = verify.verify(text, hits)  # "show me where it says that"
     except Exception as e:  # no key / Ollama down / network / timeout -> extractive fallback
         text = answer_mod._extractive_answer(req.query, hits)
         mode = f"extractive (LLM unavailable: {type(e).__name__})"
-    return {"query": req.query, "answer": text, "mode": mode, "sources": hits}
+        support = None  # an extractive answer is a quote, so there's nothing to check
+    return {"query": req.query, "answer": text, "mode": mode, "sources": hits, "support": support}
 
 
 @app.post("/timeline")

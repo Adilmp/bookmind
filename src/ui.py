@@ -1,7 +1,8 @@
 """
 ui.py — Week 4: a small Streamlit demo over the BookMind API.
 
-Tabs: "Ask" (grounded, cited answers) and "Idea timeline" (where an idea appears,
+Tabs: "Ask" (grounded, cited answers, each sentence checked against the passages)
+and "Idea timeline" (where an idea appears,
 chapter by chapter). The UI is a thin client — it talks to the FastAPI service over
 HTTP, so the same backend powers the demo, curl, and any future frontend.
 
@@ -53,6 +54,30 @@ def _highlight(text, spans):
     return "".join(out)
 
 
+MARK = {"supported": "✅", "weak": "⚠️", "unsupported": "❌", "refusal": "💬"}
+
+
+def _show_support(support):
+    """Show the answer sentence by sentence, each with its evidence from the passages."""
+    s = support["summary"]
+    if s["sentences"]:
+        line = (f"**{s['supported']} of {s['sentences']}** sentences supported by the passages"
+                f" · {s['weak']} weak · {s['unsupported']} unsupported")
+        if s["invalid_citations"]:
+            line += f" · **{s['invalid_citations']} citation(s) don't match the sources**"
+        st.markdown(line + f"  \n_checked with {support['method']}_")
+    for item in support["sentences"]:
+        st.markdown(f"{MARK[item['status']]} {_md_escape(item['sentence'])}")
+        bad = [c["raw"] for c in item["citations"] if not c["valid"]]
+        if bad:
+            st.caption("Citation not found among the sources: " + ", ".join(f"[{b}]" for b in bad))
+        if item["evidence"]:
+            ev = item["evidence"]
+            with st.expander(f"Evidence · passage [{ev['passage']}] « {ev['chapter']} » · "
+                             f"similarity {item['score']}"):
+                st.markdown("> " + _md_escape(ev["text"]))
+
+
 ask_tab, timeline_tab = st.tabs(["Ask", "Idea timeline"])
 
 with ask_tab:
@@ -66,7 +91,12 @@ with ask_tab:
                 st.error(f"Request failed: {e}")
                 r = None
         if r:
-            st.markdown(f"### Answer\n{r['answer']}")
+            st.markdown("### Answer")
+            support = r.get("support")
+            if support:
+                _show_support(support)
+            else:
+                st.markdown(r["answer"])
             st.caption(f"mode: {r['mode']}")
             with st.expander(f"Sources ({len(r['sources'])})", expanded=True):
                 for i, s in enumerate(r["sources"], 1):

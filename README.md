@@ -14,6 +14,7 @@ Ask questions across a book and get answers grounded in **cited passages**, plus
 - [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
 - [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
 - [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
+- [x] **Checked answers.** Each answer sentence is matched to its evidence and labelled ✅ / ⚠️ / ❌; thresholds calibrated on real answers (below). ✅ *working*
 - [x] **Idea timeline.** Where an idea appears, chapter by chapter; counts checked against the original EPUB text for 8 ideas. ✅ *working*
 
 ## Evaluation results
@@ -62,6 +63,30 @@ Measured on a laptop CPU with `qwen2.5:7b`: a cited answer took 27 s to 2 min an
 question was correctly refused ("I couldn't find this in the book."). `qwen2.5:0.5b` answered in 17 s but copied the passage instead of answering.
 If Ollama isn't running, BookMind falls back to its offline modes as before.
 
+## Checking answers ("show me where it says that")
+
+Every LLM answer from `/ask` comes back with a sentence-by-sentence check (`src/verify.py`).
+For each sentence it finds the best-matching sentence (or pair of sentences) in the retrieved
+passages and labels it ✅ supported, ⚠️ weak or ❌ unsupported. It also checks citations:
+`[3]` must be a real passage number, and a chapter name must match one of the sources, so
+`[9]` with five passages, or a mangled `[FOURING Trusting Self 2]`, is caught.
+
+Similarity uses `nomic-embed-text` embeddings through Ollama when it's running (word overlap
+otherwise). ✅ needs cosine ≥ 0.80, or ≥ 0.70 with at least half the words matching; ⚠️ is
+≥ 0.70. These thresholds were set on 8 real `qwen2.5:7b` answers (21 sentences, labelled by
+hand), the same sentences checked against another question's passages, and 8 invented claims:
+
+| Group | ✅ | ⚠️ | ❌ |
+|---|---|---|---|
+| Real sentences judged supported (17) | 13 | 4 | 0 |
+| Real sentences judged weak (4) | 0 | 4 | 0 |
+| Checked against the wrong passages (21) | 0 | 9 | 12 |
+| Invented claims (8) | 0 | 2 | 6 |
+
+No unsupported sentence got ✅, so ✅ can be trusted; ⚠️ means "check it yourself". Limits:
+similarity is not meaning (a sentence that reverses a passage can still look close), and the
+calibration set is small and from one model.
+
 ## Run the service (Week 4)
 
 BookMind ships as a small FastAPI service with a Streamlit demo on top. The index is
@@ -79,7 +104,7 @@ Endpoints:
 |---|---|---|---|
 | GET | `/health` | — | index status, chunk/chapter counts |
 | POST | `/search` | `{query, k}` | ranked passages with chapter citations |
-| POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key) |
+| POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key), plus `support`: every sentence checked against the passages |
 | POST | `/timeline` | `{idea, snippets_per_chapter}` | where an idea appears, chapter by chapter, with highlighted sentences |
 
 ```bash
@@ -106,6 +131,7 @@ make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 | Search | `src/search.py` | Builds the index and returns the top passages for a query, each with a citation. |
 | Answer | `src/answer.py` | Grounded, cited answer generation with a refusal guardrail; extractive fallback when no model is reachable. |
 | Model | `src/llm.py` | The only file that calls a model: Claude with an API key, otherwise a local Ollama model. |
+| Verify | `src/verify.py` | "Show me where it says that": labels each answer sentence supported / weak / unsupported with its best evidence, and checks that citations point at real sources. |
 | Timeline | `src/timeline.py` | Follows an idea (a word or exact phrase) through the book: mentions per chapter in reading order, skipping front/back matter, without double-counting the chunk overlap. No model: instant. |
 | Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
 | Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
