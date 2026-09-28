@@ -3,7 +3,7 @@ api.py — Week 4: serve BookMind as a small HTTP service.
 
 Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   GET  /health            -> is the index loaded? how many chunks / chapters?
-  POST /search  {query,k} -> ranked passages with chapter citations (BM25)
+  POST /search  {query,k} -> ranked passages with chapter citations (hybrid: BM25 + embeddings)
   POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback),
                              with every sentence checked against the passages (verify.py)
   POST /timeline {idea}  -> where an idea appears, chapter by chapter (no model, instant)
@@ -13,7 +13,7 @@ Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   POST /quiz/review {id, correct} -> record an answer (spaced review)
   POST /quiz/grade {id, answer}   -> optional: the LLM grades a typed answer
 
-Design note: the BM25 index is built ONCE at startup and shared across requests
+Design note: the search index (BM25, plus cached embeddings for hybrid search) is built ONCE at startup and shared across requests
 (the CLI in answer.py rebuilds it per call — fine for a script, wasteful for a server).
 If chunks.jsonl is missing, the service still boots and reports the problem via
 /health and a clear 503, rather than crashing on import.
@@ -44,7 +44,8 @@ _state = {"search": None, "error": None}
 
 
 def _get_search() -> BookSearch:
-    """Return the shared BM25 index, building it on first use."""
+    """Return the shared search index, building it on first use. The first run ever
+    embeds the whole book (about 90 s on a CPU); later runs read the cache."""
     if _state["search"] is None:
         _state["search"] = BookSearch()  # raises if chunks.jsonl is missing
     return _state["search"]
@@ -100,7 +101,9 @@ def health():
         return {"status": "degraded", "detail": _state["error"], "chunks": 0}
     bs = _get_search()
     chapters = sorted({c["chapter"] for c in bs.chunks})
-    return {"status": "ok", "chunks": len(bs.chunks), "chapters": len(chapters)}
+    retrieval = bs.mode if bs.mode == "bm25" or bs.dense is not None else "bm25 (fallback)"
+    return {"status": "ok", "chunks": len(bs.chunks), "chapters": len(chapters),
+            "retrieval": retrieval, "retrieval_error": bs.dense_error}
 
 
 @app.post("/search")

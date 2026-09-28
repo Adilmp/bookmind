@@ -33,6 +33,8 @@ def _health():
 h = _health()
 if h.get("status") == "ok":
     st.sidebar.success(f"API online · {h['chunks']} chunks · {h['chapters']} chapters")
+    st.sidebar.caption(f"Search: {h.get('retrieval', '?')}"
+                       + (f" — {h['retrieval_error']}" if h.get("retrieval_error") else ""))
 else:
     st.sidebar.error(f"API {h.get('status', '?')}: {h.get('detail', '')}")
     st.sidebar.caption(f"Backend: {API}")
@@ -100,8 +102,11 @@ with ask_tab:
             st.caption(f"mode: {r['mode']}")
             with st.expander(f"Sources ({len(r['sources'])})", expanded=True):
                 for i, s in enumerate(r["sources"], 1):
+                    ranks = s.get("ranks") or {}
+                    found_by = " · ".join(f"{name} #{r}" for name, r in ranks.items() if r)
                     st.markdown(f"**[{i}] « {s['chapter']} »** · chunk #{s['chunk_id']} "
-                                f"· score {s['score']}")
+                                f"· {s.get('method', '')} score {s['score']}"
+                                + (f" · ranked {found_by}" if found_by else ""))
                     st.write(s["text"])
 
 with timeline_tab:

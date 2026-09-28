@@ -6,8 +6,9 @@ and quiz yourself on a chapter with questions built from its own sentences. A
 **faithfulness evaluation** harness measures how much the system hallucinates, and it all
 runs on a free local model (Ollama) or Claude.
 
-> Built as a from-scratch RAG project: the retriever (BM25) is implemented by hand, not imported,
-> so every part is understood, not magic.
+> Built as a from-scratch RAG project: the keyword retriever (BM25) is implemented by hand, not
+> imported, and it is combined with embedding search by rank fusion that fits in ten lines, so every
+> part is understood, not magic.
 
 ## Status
 
@@ -16,22 +17,31 @@ runs on a free local model (Ollama) or Claude.
 - [x] **Week 2b — Concept maps.** Built, then **removed**: the graphs (word co-occurrence, or LLM triples from a truncated prompt) gave readers nothing they could act on.
 - [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
 - [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
-- [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
+- [x] **Week 2c — Hybrid retrieval.** BM25 + embeddings merged with Reciprocal Rank Fusion; measured against BM25 and embeddings alone on a larger test set (below). ✅ *working*
 - [x] **Checked answers.** Each answer sentence is matched to its evidence and labelled ✅ / ⚠️ / ❌; thresholds calibrated on real answers (below). ✅ *working*
 - [x] **Quiz me.** Study questions per chapter, grounded in exact quotes, with spaced review and optional AI grading. ✅ *working*
 - [x] **Idea timeline.** Where an idea appears, chapter by chapter; counts checked against the original EPUB text for 8 ideas. ✅ *working*
 
 ## Evaluation results
 
-Run `python src/evaluate.py` (16-question gold set: 12 answerable + 4 adversarial).
+Run `python src/evaluate.py`. The test set has 42 questions: 38 answerable (each labelled with
+the chapter that answers it) and 4 off-topic ones the system must refuse.
 
-| Metric | Result | Needs key? |
+**Retrieval** (does the right chapter appear in the top 5 passages?). BM25 needs nothing; the
+other two need Ollama for embeddings:
+
+| Questions | BM25 | Embeddings | **Hybrid (default)** |
+|---|---|---|---|
+| All 38: Recall@5 | 92% | 89% | **95%** |
+| All 38: MRR | 0.703 | 0.763 | **0.796** |
+| Everyday wording (19): MRR | 0.629 | 0.719 | **0.763** |
+| The book's own terms (7): MRR | 0.929 | 0.857 | **1.000** |
+
+| Answer quality | Result | Needs a model? |
 |---|---|---|
-| Retrieval Recall@5 (BM25) | **83%** | no |
-| Retrieval MRR | **0.688** | no |
-| Citation accuracy | *(run with key)* | yes |
-| Refusal correctness (adversarial) | *(run with key)* | yes |
-| Hallucination rate: RAG vs closed-book | *(run with key)* | yes |
+| Citation accuracy | *(run with a model)* | yes |
+| Refusal correctness (adversarial) | *(run with a model)* | yes |
+| Hallucination rate: RAG vs closed-book | *(run with a model)* | yes |
 
 The citation checker is deterministic (verifies each `[Chapter]` against real chapters) and runs even without a key.
 
@@ -62,10 +72,44 @@ make api                        # answers now come from qwen2.5:7b
 | `BOOKMIND_OLLAMA_MODEL` | `qwen2.5:7b` | any model you've pulled |
 | `BOOKMIND_OLLAMA_URL` | `http://127.0.0.1:11434` | where Ollama listens |
 | `BOOKMIND_OLLAMA_TIMEOUT` | `600` | seconds to wait for a local answer |
+| `BOOKMIND_RETRIEVAL` | `hybrid` | `hybrid`, `bm25` or `dense` (see "Retrieval") |
+| `BOOKMIND_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for search and answer checks (`ollama pull nomic-embed-text`) |
 
 Measured on a laptop CPU with `qwen2.5:7b`: a cited answer took 27 s to 2 min and an off-topic
 question was correctly refused ("I couldn't find this in the book."). `qwen2.5:0.5b` answered in 17 s but copied the passage instead of answering.
 If Ollama isn't running, BookMind falls back to its offline modes as before.
+
+## Retrieval: keyword, meaning, or both
+
+BM25 matches words, so it misses a passage that says the same thing differently: "calling my
+shots good or bad" versus the book's "letting go of judgment". Embeddings (`nomic-embed-text`
+through Ollama) match meaning, but they drift towards passages that are merely on the same topic,
+and they are worse at exact terms like "bounce-hit".
+
+**Hybrid** runs both and merges the two rankings with Reciprocal Rank Fusion: each passage scores
+`1/(60 + rank)` in each list, summed. Only ranks are used, so BM25's unbounded scores and cosine
+similarity never have to be put on one scale. Each result reports which method ranked it and its
+rank in each list.
+
+What the numbers above do and don't show:
+
+- **The test set was grown first.** The original 12 questions couldn't separate two retrievers,
+  because one question moved Recall@5 by 8 points. The 26 new questions were written and
+  committed before dense or hybrid retrieval was measured, so they weren't tuned to the new code.
+  The RRF constant (60) is the standard value, not tuned here.
+- **Hybrid never lost a question BM25 found.** It found one more, ranked the right chapter higher
+  on 13 questions and lower on 7.
+- **The gain is not yet proven.** A paired bootstrap puts the MRR difference over BM25 at +0.093,
+  with a 95% interval from -0.03 to +0.22. That includes zero, so 38 questions can't rule out
+  luck. Hybrid is the default because it was best or joint best on every slice and never worse
+  on recall.
+- **The labels are chapter-level:** a hit means a passage from the right chapter, not the exact
+  passage.
+
+Embedding all 326 chunks takes about 90 s on a laptop CPU. The vectors are cached in
+`data/embeddings.json` (git-ignored) and rebuilt automatically when the chunks or the embedding
+model change. If Ollama isn't running, search falls back to BM25, and both `/health` and every
+result say so.
 
 ## Checking answers ("show me where it says that")
 
@@ -121,8 +165,8 @@ Endpoints:
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/health` | — | index status, chunk/chapter counts |
-| POST | `/search` | `{query, k}` | ranked passages with chapter citations |
+| GET | `/health` | — | index status, chunk/chapter counts, retrieval mode (and why, if it fell back to BM25) |
+| POST | `/search` | `{query, k}` | ranked passages with chapter citations, the method used and each passage's BM25 and embedding ranks |
 | POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key), plus `support`: every sentence checked against the passages |
 | POST | `/timeline` | `{idea, snippets_per_chapter}` | where an idea appears, chapter by chapter, with highlighted sentences |
 | GET | `/quiz/chapters` | — | chapters, whether questions exist, how many are due |
@@ -152,13 +196,14 @@ make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 |---|---|---|
 | Ingest | `src/ingest.py` | Parses the EPUB in reading order, extracts clean paragraphs, splits into ~180-word overlapping chunks, tags each with its chapter (from the TOC). |
 | Rank | `src/bm25.py` | BM25 implemented from scratch (TF saturation + length normalisation) — not imported. |
-| Search | `src/search.py` | Builds the index and returns the top passages for a query, each with a citation. |
+| Embed | `src/dense.py` | Embedding ("dense") search: cosine similarity over cached chunk vectors from Ollama. |
+| Search | `src/search.py` | Hybrid search: BM25 and embedding rankings merged by Reciprocal Rank Fusion, falling back to BM25 without Ollama; each passage comes with a citation. |
 | Answer | `src/answer.py` | Grounded, cited answer generation with a refusal guardrail; extractive fallback when no model is reachable. |
 | Model | `src/llm.py` | The only file that calls a model: Claude with an API key, otherwise a local Ollama model. |
 | Verify | `src/verify.py` | "Show me where it says that": labels each answer sentence supported / weak / unsupported with its best evidence, and checks that citations point at real sources. |
 | Quiz | `src/quiz.py` | Writes study questions per chapter, keeping only those whose quote is a complete sentence of the passage; spaced review (Leitner boxes); optional LLM grading. |
 | Timeline | `src/timeline.py` | Follows an idea (a word or exact phrase) through the book: mentions per chapter in reading order, skipping front/back matter, without double-counting the chunk overlap. No model: instant. |
-| Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
+| Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) for BM25, embeddings and hybrid side by side, with a paired bootstrap interval; deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
 | Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
 | Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask", "Idea timeline" and "Quiz me" tabs. |
 

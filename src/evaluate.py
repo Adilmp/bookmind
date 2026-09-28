@@ -2,8 +2,9 @@
 evaluate.py — Week 3: the evaluation harness (BookMind's differentiator).
 
 Two tiers, so it always produces something useful:
-  1. Retrieval metrics — Recall@k and MRR over the gold set. Deterministic, needs
-     no credentials, produces REAL numbers today.
+  1. Retrieval metrics — Recall@k and MRR over the gold set, for BM25, dense and
+     hybrid side by side. BM25 needs nothing; dense and hybrid need Ollama for the
+     embeddings (they fall back to BM25 without it, and the report says so).
   2. Answer metrics (when an LLM key is present) — citation accuracy, refusal
      correctness on unanswerable questions, and a RAG-vs-closed-book hallucination
      comparison. These are the metrics that mirror LLM-evaluation work.
@@ -55,29 +56,82 @@ def refused(answer):
 
 # ---------- tier 1: retrieval metrics (no credentials) ----------
 
-def retrieval_metrics(gold, k=5):
-    bs = BookSearch()
+def first_hit_rank(results, chapter):
+    """1-based rank of the first result from the gold chapter, or None."""
+    for i, r in enumerate(results, 1):
+        if chapter in _normalize_chapter(r["chapter"]):
+            return i
+    return None
+
+
+def retrieval_metrics(gold, k=5, mode="bm25", bs=None):
+    """Recall@k and MRR for one retrieval mode. Also returns each question's rank, so two
+    modes can be compared question by question, and the method that really ran (hybrid
+    silently becomes bm25 if Ollama is down; the report must not claim otherwise)."""
+    bs = bs or BookSearch(mode=mode)
     answerable = [g for g in gold if g["answerable"]]
-    hits_at_k, reciprocal_ranks = 0, []
+    ranks, methods = [], set()
     for g in answerable:
-        results = bs.search(g["q"], k=k)
-        rank = None
-        for i, r in enumerate(results):
-            if g["chapter"] in _normalize_chapter(r["chapter"]):
-                rank = i + 1
-                break
-        if rank:
-            hits_at_k += 1
-            reciprocal_ranks.append(1 / rank)
-        else:
-            reciprocal_ranks.append(0.0)
+        results = bs.search(g["q"], k=k, mode=mode)
+        methods.update(r["method"] for r in results)
+        ranks.append(first_hit_rank(results, g["chapter"]))
     n = len(answerable)
     return {
         "n": n,
-        "recall_at_k": hits_at_k / n,
-        "mrr": sum(reciprocal_ranks) / n,
+        "recall_at_k": sum(r is not None for r in ranks) / n,
+        "mrr": sum(1 / r for r in ranks if r) / n,
         "k": k,
+        "ranks": ranks,
+        "methods": sorted(methods),
     }
+
+
+def paired_bootstrap(a_ranks, b_ranks, n=10000, seed=0):
+    """95% interval for mean(RR of b) - mean(RR of a), resampling the same questions for
+    both (paired). If the interval contains 0, the MRR difference could be luck."""
+    import random
+    rng = random.Random(seed)
+    rr = lambda r: 1 / r if r else 0.0
+    diffs = [rr(b) - rr(a) for a, b in zip(a_ranks, b_ranks)]
+    means = sorted(sum(rng.choice(diffs) for _ in diffs) / len(diffs) for _ in range(n))
+    return sum(diffs) / len(diffs), means[int(0.025 * n)], means[int(0.975 * n) - 1]
+
+
+def compare_retrievers(gold, k=5, modes=("bm25", "dense", "hybrid")):
+    """Run every mode on the same index; print overall and per-slice numbers, and how
+    many questions each mode finds that BM25 misses (and the reverse)."""
+    bs = BookSearch(mode="hybrid")
+    answerable = [g for g in gold if g["answerable"]]
+    runs = {m: retrieval_metrics(gold, k, m, bs) for m in modes}
+    slices = {
+        "all": lambda g: True,
+        "original 12 (v1)": lambda g: g.get("set", "v1") == "v1",
+        "paraphrase (v2)": lambda g: g.get("style") == "paraphrase",
+        "keyword (v2)": lambda g: g.get("style") == "keyword",
+    }
+    print(f"  RETRIEVAL (Recall@{k} / MRR, chapter-level gold labels):")
+    print("    " + f"{'slice':24}" + "".join(f"{m:>16}" for m in modes))
+    for name, keep in slices.items():
+        idx = [i for i, g in enumerate(answerable) if keep(g)]
+        cells = []
+        for m in modes:
+            rs = [runs[m]["ranks"][i] for i in idx]
+            recall = sum(r is not None for r in rs) / len(rs)
+            mrr = sum(1 / r for r in rs if r) / len(rs)
+            cells.append(f"{recall:5.0%} / {mrr:.3f}")
+        print("    " + f"{name + f' n={len(idx)}':24}" + "".join(f"{c:>16}" for c in cells))
+    for m in modes:
+        if m != "bm25":
+            base, other = runs["bm25"]["ranks"], runs[m]["ranks"]
+            gains = sum(b is None and o is not None for b, o in zip(base, other))
+            losses = sum(b is not None and o is None for b, o in zip(base, other))
+            diff, lo, hi = paired_bootstrap(base, other)
+            print(f"    {m} vs bm25: finds {gains} question(s) bm25 misses, misses {losses} it finds; "
+                  f"MRR {diff:+.3f} (95% bootstrap interval {lo:+.3f} to {hi:+.3f})")
+    ran = {m: runs[m]["methods"] for m in modes}
+    if any(ran[m] != [m] for m in modes):
+        print(f"    WARNING: some modes fell back to another method: {ran}")
+    return runs
 
 
 # ---------- tier 2: answer metrics (needs an LLM key) ----------
@@ -147,9 +201,8 @@ if __name__ == "__main__":
           f"({sum(g['answerable'] for g in gold)} answerable, "
           f"{sum(not g['answerable'] for g in gold)} adversarial)\n")
 
-    rm = retrieval_metrics(gold)
-    print("  RETRIEVAL (BM25, deterministic):")
-    print(f"    Recall@{rm['k']}: {rm['recall_at_k']:.0%}   MRR: {rm['mrr']:.3f}   (n={rm['n']})\n")
+    compare_retrievers(gold)
+    print()
 
     if llm_available():
         am = answer_metrics(gold)

@@ -6,7 +6,8 @@ it goes here instead of derailing the build. Ship first, expand later.
 ## Next up (Week 2)
 - [ ] LLM answer generation over retrieved chunks (grounded, with inline citations)
 - [ ] Refusal guardrail: answer "not in this book" instead of hallucinating
-- [ ] Dense embeddings (BGE-M3) + **hybrid** BM25 + dense retrieval; compare on eval set
+- [x] Dense embeddings + **hybrid** BM25 + dense retrieval (RRF); compared on a 38-question eval set (nomic-embed-text, not BGE-M3: it already runs in Ollama for answer checks)
+- [ ] Grow the eval set past ~100 questions, with passage-level labels, so the hybrid gain can be confirmed or ruled out
 - [x] ~~Concept-map generation~~: built, then dropped (not useful to readers)
 
 ## Week 3

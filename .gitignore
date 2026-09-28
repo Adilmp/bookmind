@@ -13,3 +13,6 @@ venv/
 # Quiz questions and review progress (derived from the book's text, and personal)
 data/quiz/
 data/quiz_progress.json
+
+# Cached chunk embeddings for hybrid search (derived from the book; rebuilt automatically)
+data/embeddings.json
