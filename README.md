@@ -14,6 +14,7 @@ Ask questions across a book and get answers grounded in **cited passages**, plus
 - [x] **Week 3 — Evaluation harness.** Retrieval metrics (Recall@k, MRR) + citation-accuracy checker, refusal correctness, and RAG-vs-closed-book hallucination comparison. ✅ *working*
 - [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
 - [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
+- [x] **Idea timeline.** Where an idea appears, chapter by chapter; counts checked against the original EPUB text for 8 ideas. ✅ *working*
 
 ## Evaluation results
 
@@ -79,6 +80,7 @@ Endpoints:
 | GET | `/health` | — | index status, chunk/chapter counts |
 | POST | `/search` | `{query, k}` | ranked passages with chapter citations |
 | POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key) |
+| POST | `/timeline` | `{idea, snippets_per_chapter}` | where an idea appears, chapter by chapter, with highlighted sentences |
 
 ```bash
 curl -s localhost:8000/ask -H 'content-type: application/json' \
@@ -104,9 +106,10 @@ make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 | Search | `src/search.py` | Builds the index and returns the top passages for a query, each with a citation. |
 | Answer | `src/answer.py` | Grounded, cited answer generation with a refusal guardrail; extractive fallback when no model is reachable. |
 | Model | `src/llm.py` | The only file that calls a model: Claude with an API key, otherwise a local Ollama model. |
+| Timeline | `src/timeline.py` | Follows an idea (a word or exact phrase) through the book: mentions per chapter in reading order, skipping front/back matter, without double-counting the chunk overlap. No model: instant. |
 | Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
 | Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
-| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" tab. |
+| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" and "Idea timeline" tabs. |
 
 ## Data & copyright
 

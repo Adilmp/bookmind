@@ -1,13 +1,15 @@
 """
 ui.py — Week 4: a small Streamlit demo over the BookMind API.
 
-Tabs: "Ask" (grounded, cited answers). The UI is a thin client — it talks to the FastAPI service over
+Tabs: "Ask" (grounded, cited answers) and "Idea timeline" (where an idea appears,
+chapter by chapter). The UI is a thin client — it talks to the FastAPI service over
 HTTP, so the same backend powers the demo, curl, and any future frontend.
 
 Run:  streamlit run src/ui.py
       BOOKMIND_API=http://localhost:8000 streamlit run src/ui.py   # custom backend
 """
 import os
+import re
 
 import requests
 import streamlit as st
@@ -34,7 +36,24 @@ else:
     st.sidebar.error(f"API {h.get('status', '?')}: {h.get('detail', '')}")
     st.sidebar.caption(f"Backend: {API}")
 
-(ask_tab,) = st.tabs(["Ask"])
+
+
+def _md_escape(text):
+    """Escape characters that Markdown would treat as formatting."""
+    return re.sub(r"([\\`*_{}\[\]<>#+|~])", r"\\\1", text)
+
+
+def _highlight(text, spans):
+    """Bold the [start, end) character spans of `text`, escaping everything else."""
+    out, pos = [], 0
+    for start, end in spans:
+        out += [_md_escape(text[pos:start]), "**", _md_escape(text[start:end]), "**"]
+        pos = end
+    out.append(_md_escape(text[pos:]))
+    return "".join(out)
+
+
+ask_tab, timeline_tab = st.tabs(["Ask", "Idea timeline"])
 
 with ask_tab:
     q = st.text_input("Question", "How do I stop overthinking on the court?")
@@ -54,3 +73,31 @@ with ask_tab:
                     st.markdown(f"**[{i}] « {s['chapter']} »** · chunk #{s['chunk_id']} "
                                 f"· score {s['score']}")
                     st.write(s["text"])
+
+with timeline_tab:
+    st.caption("Follow one idea through the book: how often each chapter mentions it, "
+               "and where. A word, or an exact phrase.")
+    idea = st.text_input("Idea", "Self 1")
+    if st.button("Trace idea", type="primary"):
+        try:
+            resp = requests.post(f"{API}/timeline", json={"idea": idea}, timeout=30)
+        except Exception as e:
+            st.error(f"Request failed: {e}")
+            resp = None
+        if resp is not None and resp.status_code != 200:
+            st.error(resp.json().get("detail", resp.text))
+        elif resp is not None:
+            t = resp.json()
+            found = [c for c in t["chapters"] if c["mentions"]]
+            st.markdown(f"**{t['total_mentions']}** mentions of **{_md_escape(t['idea'])}** "
+                        f"in **{len(found)}** of {len(t['chapters'])} chapters.")
+            top = max((c["mentions"] for c in t["chapters"]), default=0) or 1
+            for c in t["chapters"]:
+                name_col, bar_col, n_col = st.columns([5, 6, 1])
+                name_col.markdown(_md_escape(c["chapter"]))
+                bar_col.progress(c["mentions"] / top)
+                n_col.markdown(f"**{c['mentions']}**")
+                if c["snippets"]:
+                    with st.expander(f"Where it appears ({c['passages']} passages)"):
+                        for snip in c["snippets"]:
+                            st.markdown("> " + _highlight(snip["text"], snip["spans"]))

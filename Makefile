@@ -1,5 +1,5 @@
 # BookMind — one-command runs (Week 4).
-.PHONY: help install api ui run docker docker-run eval
+.PHONY: help install api ui run docker docker-run eval test
 
 help:
 	@echo "make install     install Python deps"
@@ -9,6 +9,7 @@ help:
 	@echo "make docker      build the API image"
 	@echo "make docker-run  run the API image (mounts ./data, passes ANTHROPIC_API_KEY)"
 	@echo "make eval        run the evaluation harness"
+	@echo "make test        run the unit tests"
 
 install:
 	pip install -r requirements.txt
@@ -34,3 +35,6 @@ docker-run:
 
 eval:
 	python src/evaluate.py
+
+test:
+	python3 -m unittest discover -s tests

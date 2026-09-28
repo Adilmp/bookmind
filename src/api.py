@@ -5,6 +5,7 @@ Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   GET  /health            -> is the index loaded? how many chunks / chapters?
   POST /search  {query,k} -> ranked passages with chapter citations (BM25)
   POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback)
+  POST /timeline {idea}  -> where an idea appears, chapter by chapter (no model, instant)
 
 Design note: the BM25 index is built ONCE at startup and shared across requests
 (the CLI in answer.py rebuilds it per call — fine for a script, wasteful for a server).
@@ -20,6 +21,7 @@ from pydantic import BaseModel, Field
 
 import answer as answer_mod
 import llm
+import timeline as timeline_mod
 from search import BookSearch
 
 app = FastAPI(
@@ -62,6 +64,11 @@ class AskRequest(BaseModel):
     k: int = Field(5, ge=1, le=20)
 
 
+class TimelineRequest(BaseModel):
+    idea: str = Field(..., min_length=1, max_length=100)
+    snippets_per_chapter: int = Field(2, ge=1, le=5)
+
+
 # ---- endpoints ---------------------------------------------------------------
 
 @app.get("/health")
@@ -90,6 +97,15 @@ def ask(req: AskRequest):
         text = answer_mod._extractive_answer(req.query, hits)
         mode = f"extractive (LLM unavailable: {type(e).__name__})"
     return {"query": req.query, "answer": text, "mode": mode, "sources": hits}
+
+
+@app.post("/timeline")
+def idea_timeline(req: TimelineRequest):
+    bs = _require_index()
+    try:
+        return timeline_mod.timeline(req.idea, bs.chunks, req.snippets_per_chapter)
+    except ValueError as e:  # e.g. an idea with no letters or digits
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 def _require_index() -> BookSearch:
