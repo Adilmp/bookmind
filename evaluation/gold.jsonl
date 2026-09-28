@@ -1,16 +1,42 @@
-{"q": "What are the two selves, Self 1 and Self 2?", "chapter": "two selves", "answerable": true}
-{"q": "How do I quiet the judgmental thinking mind?", "chapter": "quieting self 1", "answerable": true}
-{"q": "How can I trust my body to play without interfering?", "chapter": "trusting self 2", "answerable": true}
-{"q": "What is the best way to learn a new stroke or technique?", "chapter": "discovering technique", "answerable": true}
-{"q": "How do habits form and how are they changed?", "chapter": "changing habits", "answerable": true}
-{"q": "How do I improve my concentration and focus on the court?", "chapter": "concentration", "answerable": true}
-{"q": "Why do people play ego games and compete on the court?", "chapter": "games people play", "answerable": true}
-{"q": "What is the true meaning of competition?", "chapter": "meaning of competition", "answerable": true}
-{"q": "How does the inner game apply to life off the court?", "chapter": "off the court", "answerable": true}
-{"q": "What does letting go of judgment mean?", "chapter": "quieting self 1", "answerable": true}
-{"q": "How should I watch the ball to stay focused?", "chapter": "concentration", "answerable": true}
-{"q": "What is natural learning versus trying too hard?", "chapter": "trusting self 2", "answerable": true}
-{"q": "What is the offside rule in football?", "chapter": null, "answerable": false}
-{"q": "Who won the 1998 FIFA World Cup?", "chapter": null, "answerable": false}
-{"q": "What is the recipe for chicken biryani?", "chapter": null, "answerable": false}
-{"q": "What is the capital of Australia?", "chapter": null, "answerable": false}
+{"q": "What are the two selves, Self 1 and Self 2?", "chapter": "two selves", "answerable": true, "set": "v1"}
+{"q": "How do I quiet the judgmental thinking mind?", "chapter": "quieting self 1", "answerable": true, "set": "v1"}
+{"q": "How can I trust my body to play without interfering?", "chapter": "trusting self 2", "answerable": true, "set": "v1"}
+{"q": "What is the best way to learn a new stroke or technique?", "chapter": "discovering technique", "answerable": true, "set": "v1"}
+{"q": "How do habits form and how are they changed?", "chapter": "changing habits", "answerable": true, "set": "v1"}
+{"q": "How do I improve my concentration and focus on the court?", "chapter": "concentration", "answerable": true, "set": "v1"}
+{"q": "Why do people play ego games and compete on the court?", "chapter": "games people play", "answerable": true, "set": "v1"}
+{"q": "What is the true meaning of competition?", "chapter": "meaning of competition", "answerable": true, "set": "v1"}
+{"q": "How does the inner game apply to life off the court?", "chapter": "off the court", "answerable": true, "set": "v1"}
+{"q": "What does letting go of judgment mean?", "chapter": "quieting self 1", "answerable": true, "set": "v1"}
+{"q": "How should I watch the ball to stay focused?", "chapter": "concentration", "answerable": true, "set": "v1"}
+{"q": "What is natural learning versus trying too hard?", "chapter": "trusting self 2", "answerable": true, "set": "v1"}
+{"q": "Why do players end up talking to themselves during a match, and who is giving the orders?", "chapter": "two selves", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "Why does trying very hard to hit the ball on the center of the racket make it worse?", "chapter": "two selves", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Why did giving students fewer tips make them improve faster?", "chapter": "reflections on the mental side", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What is the difference between the outer game and the inner game?", "chapter": "introduction", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Why is calling my shots good or bad a problem?", "chapter": "quieting self 1", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How do negative beliefs about my own serve end up coming true?", "chapter": "quieting self 1", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What happens if I pretend to be a confident top professional while I play?", "chapter": "trusting self 2", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "Should I focus on where I want the ball to go instead of how I swing?", "chapter": "trusting self 2", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How is a parent watching a child learn to walk like trusting my body?", "chapter": "trusting self 2", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How can I let my serve happen by itself instead of controlling it?", "chapter": "trusting self 2", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How should I make the best use of technical instructions from coaches and books?", "chapter": "discovering technique", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Can I work out the right technique by experimenting myself instead of being told?", "chapter": "discovering technique", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "Why does forcing myself to break a bad habit rarely work?", "chapter": "changing habits", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What is the groove theory of habits?", "chapter": "changing habits", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "What is the bounce-hit exercise?", "chapter": "concentration", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Where should my attention go in the moments after a rally ends?", "chapter": "concentration", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How can hearing the ball come off the strings improve my play?", "chapter": "concentration", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How can I become aware of where my racket is during the swing?", "chapter": "concentration", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "Why do some players care more about looking stylish than about winning?", "chapter": "games people play", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What different motives do people have for playing tennis?", "chapter": "games people play", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "Why should I be glad when my opponent plays really well?", "chapter": "meaning of competition", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How is a surfer waiting for big waves like a player facing a strong opponent?", "chapter": "meaning of competition", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Can two competitors actually be helping each other?", "chapter": "meaning of competition", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "How can I stay calm under stress at work, not just in sport?", "chapter": "off the court", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What does building inner stability mean?", "chapter": "off the court", "answerable": true, "set": "v2", "style": "keyword"}
+{"q": "Why is the ability to stay calm in the middle of change so valuable in modern life?", "chapter": "off the court", "answerable": true, "set": "v2", "style": "paraphrase"}
+{"q": "What is the offside rule in football?", "chapter": null, "answerable": false, "set": "v1"}
+{"q": "Who won the 1998 FIFA World Cup?", "chapter": null, "answerable": false, "set": "v1"}
+{"q": "What is the recipe for chicken biryani?", "chapter": null, "answerable": false, "set": "v1"}
+{"q": "What is the capital of Australia?", "chapter": null, "answerable": false, "set": "v1"}
