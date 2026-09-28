@@ -54,13 +54,17 @@ def available():
         return False
 
 
-def chat(system, user, max_tokens=1024, temperature=0.0):
-    """Send one system prompt + one user message; return the model's text."""
+def chat(system, user, max_tokens=1024, temperature=0.0, json_mode=False):
+    """Send one system prompt + one user message; return the model's text.
+
+    json_mode=True asks Ollama to constrain its output to valid JSON (Claude follows the
+    prompt's JSON instructions without it). Callers must still parse and validate.
+    """
     backend = provider()
     if backend == "anthropic":
         return _claude(system, user, max_tokens, temperature)
     if backend == "ollama":
-        return _ollama(system, user, max_tokens, temperature)
+        return _ollama(system, user, max_tokens, temperature, json_mode)
     raise ValueError(f"unknown BOOKMIND_PROVIDER: {backend!r} (use anthropic or ollama)")
 
 
@@ -78,7 +82,7 @@ def _claude(system, user, max_tokens, temperature):
     return "".join(b.text for b in resp.content if b.type == "text").strip()
 
 
-def _ollama(system, user, max_tokens, temperature):
+def _ollama(system, user, max_tokens, temperature, json_mode=False):
     body = {
         "model": OLLAMA_MODEL,
         "stream": False,
@@ -90,6 +94,8 @@ def _ollama(system, user, max_tokens, temperature):
         # plus instructions; 8192 tokens keeps the prompt from being silently cut.
         "options": {"temperature": temperature, "num_predict": max_tokens, "num_ctx": 8192},
     }
+    if json_mode:
+        body["format"] = "json"
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/chat",
         data=json.dumps(body).encode(),

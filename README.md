@@ -15,6 +15,7 @@ Ask questions across a book and get answers grounded in **cited passages**, plus
 - [x] **Week 4 — Deploy.** FastAPI service (`/search`, `/ask`), Streamlit demo, Dockerfile, and one-command run. ✅ *working*
 - [ ] Week 2c — dense/hybrid retrieval (improve against the eval numbers)
 - [x] **Checked answers.** Each answer sentence is matched to its evidence and labelled ✅ / ⚠️ / ❌; thresholds calibrated on real answers (below). ✅ *working*
+- [x] **Quiz me.** Study questions per chapter, grounded in exact quotes, with spaced review and optional AI grading. ✅ *working*
 - [x] **Idea timeline.** Where an idea appears, chapter by chapter; counts checked against the original EPUB text for 8 ideas. ✅ *working*
 
 ## Evaluation results
@@ -87,6 +88,21 @@ No unsupported sentence got ✅, so ✅ can be trusted; ⚠️ means "check it y
 similarity is not meaning (a sentence that reverses a passage can still look close), and the
 calibration set is small and from one model.
 
+## Quiz me
+
+Pick a chapter; the model writes one question per passage (six passages spread across the
+chapter) with a short answer and **the exact sentence that answers it**. `src/quiz.py` keeps a
+question only if that quote is a complete sentence that really appears in the passage, and
+gives a rejected passage one retry. Answer, reveal, and mark yourself; missed questions come
+back the same day, remembered ones after 1, 3, 7 and 14 days. "Check my answer with AI" is
+optional (about a minute on a CPU).
+
+With `qwen2.5:7b` on a laptop CPU, a chapter took about 4 minutes, once. The first version of
+the check accepted half-sentence "quotes", which produced questions that didn't match their
+answers; requiring a complete sentence fixed that (5 of 6 passages gave a good question).
+Questions are saved in `data/quiz/` and progress in `data/quiz_progress.json`, both
+git-ignored: they're derived from the book's text.
+
 ## Run the service (Week 4)
 
 BookMind ships as a small FastAPI service with a Streamlit demo on top. The index is
@@ -106,6 +122,11 @@ Endpoints:
 | POST | `/search` | `{query, k}` | ranked passages with chapter citations |
 | POST | `/ask` | `{query, k}` | grounded, cited answer (extractive fallback w/o key), plus `support`: every sentence checked against the passages |
 | POST | `/timeline` | `{idea, snippets_per_chapter}` | where an idea appears, chapter by chapter, with highlighted sentences |
+| GET | `/quiz/chapters` | — | chapters, whether questions exist, how many are due |
+| POST | `/quiz/generate` | `{chapter, n}` | write study questions for a chapter (slow on a CPU; saved) |
+| GET | `/quiz?chapter=…` | — | a chapter's questions and which are due |
+| POST | `/quiz/review` | `{id, correct}` | record an answer (spaced review) |
+| POST | `/quiz/grade` | `{id, answer}` | optional: the LLM grades a typed answer |
 
 ```bash
 curl -s localhost:8000/ask -H 'content-type: application/json' \
@@ -132,10 +153,11 @@ make docker-run   # run, mounting ./data and passing $ANTHROPIC_API_KEY
 | Answer | `src/answer.py` | Grounded, cited answer generation with a refusal guardrail; extractive fallback when no model is reachable. |
 | Model | `src/llm.py` | The only file that calls a model: Claude with an API key, otherwise a local Ollama model. |
 | Verify | `src/verify.py` | "Show me where it says that": labels each answer sentence supported / weak / unsupported with its best evidence, and checks that citations point at real sources. |
+| Quiz | `src/quiz.py` | Writes study questions per chapter, keeping only those whose quote is a complete sentence of the passage; spaced review (Leitner boxes); optional LLM grading. |
 | Timeline | `src/timeline.py` | Follows an idea (a word or exact phrase) through the book: mentions per chapter in reading order, skipping front/back matter, without double-counting the chunk overlap. No model: instant. |
 | Evaluate | `src/evaluate.py` | Retrieval metrics (Recall@k, MRR) + deterministic citation checker, refusal correctness, and RAG-vs-closed-book hallucination. |
 | Serve | `src/api.py` | FastAPI service; builds the index once at startup and shares it across requests. |
-| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask" and "Idea timeline" tabs. |
+| Demo | `src/ui.py` | Streamlit UI (thin HTTP client over the API): "Ask", "Idea timeline" and "Quiz me" tabs. |
 
 ## Data & copyright
 

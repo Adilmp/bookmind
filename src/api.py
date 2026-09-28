@@ -7,6 +7,11 @@ Wraps the pieces built in Weeks 1–3 behind a FastAPI app:
   POST /ask     {query,k} -> grounded, cited answer (Claude or Ollama via llm.py, extractive fallback),
                              with every sentence checked against the passages (verify.py)
   POST /timeline {idea}  -> where an idea appears, chapter by chapter (no model, instant)
+  GET  /quiz/chapters     -> chapters, whether questions exist, how many are due
+  POST /quiz/generate {chapter, n} -> make study questions for a chapter (slow on a CPU)
+  GET  /quiz?chapter=...  -> a chapter's questions and which are due for review
+  POST /quiz/review {id, correct} -> record an answer (spaced review)
+  POST /quiz/grade {id, answer}   -> optional: the LLM grades a typed answer
 
 Design note: the BM25 index is built ONCE at startup and shared across requests
 (the CLI in answer.py rebuilds it per call — fine for a script, wasteful for a server).
@@ -22,6 +27,7 @@ from pydantic import BaseModel, Field
 
 import answer as answer_mod
 import llm
+import quiz as quiz_mod
 import timeline as timeline_mod
 import verify
 from search import BookSearch
@@ -64,6 +70,21 @@ class SearchRequest(BaseModel):
 class AskRequest(BaseModel):
     query: str = Field(..., min_length=1)
     k: int = Field(5, ge=1, le=20)
+
+
+class QuizGenerateRequest(BaseModel):
+    chapter: str = Field(..., min_length=1)
+    n: int = Field(6, ge=1, le=12)
+
+
+class QuizReviewRequest(BaseModel):
+    id: str = Field(..., min_length=1)
+    correct: bool
+
+
+class QuizGradeRequest(BaseModel):
+    id: str = Field(..., min_length=1)
+    answer: str = Field(..., min_length=1, max_length=2000)
 
 
 class TimelineRequest(BaseModel):
@@ -110,6 +131,69 @@ def idea_timeline(req: TimelineRequest):
         return timeline_mod.timeline(req.idea, bs.chunks, req.snippets_per_chapter)
     except ValueError as e:  # e.g. an idea with no letters or digits
         raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.get("/quiz/chapters")
+def quiz_chapters():
+    bs = _require_index()
+    progress = quiz_mod.load_progress()
+    out = []
+    for chapter in quiz_mod.chapters(bs.chunks):
+        saved = quiz_mod.load_quiz(chapter)
+        questions = saved["questions"] if saved else []
+        out.append({"chapter": chapter, "generated": saved is not None,
+                    "questions": len(questions), "due": len(quiz_mod.due(questions, progress))})
+    return out
+
+
+@app.post("/quiz/generate")
+def quiz_generate(req: QuizGenerateRequest):
+    bs = _require_index()
+    if req.chapter not in quiz_mod.chapters(bs.chunks):
+        raise HTTPException(status_code=404, detail=f"unknown chapter: {req.chapter}")
+    try:
+        return quiz_mod.generate(req.chapter, bs.chunks, n=req.n)
+    except Exception as e:  # no model reachable, timeout, ...
+        raise HTTPException(status_code=503, detail=f"could not generate questions ({type(e).__name__}: {e})")
+
+
+@app.get("/quiz")
+def quiz_get(chapter: str):
+    saved = quiz_mod.load_quiz(chapter)
+    if saved is None:
+        raise HTTPException(status_code=404, detail="no questions yet for this chapter: generate them first")
+    progress = quiz_mod.load_progress()
+    return {**saved,
+            "due": [q["id"] for q in quiz_mod.due(saved["questions"], progress)],
+            "progress": {q["id"]: progress.get(q["id"]) for q in saved["questions"]}}
+
+
+@app.post("/quiz/review")
+def quiz_review(req: QuizReviewRequest):
+    _find_question(req.id)  # 404 for an unknown id
+    progress = quiz_mod.load_progress()
+    entry = quiz_mod.review(progress, req.id, req.correct)
+    quiz_mod.save_progress(progress)
+    return entry
+
+
+@app.post("/quiz/grade")
+def quiz_grade(req: QuizGradeRequest):
+    question = _find_question(req.id)
+    try:
+        return quiz_mod.grade(question, req.answer)
+    except Exception as e:  # no model, bad JSON, unexpected verdict
+        raise HTTPException(status_code=503, detail=f"could not grade ({type(e).__name__}: {e})")
+
+
+def _find_question(question_id):
+    """Look a question up across the saved quizzes; 404 if it doesn't exist."""
+    for chapter in quiz_mod.chapters(_require_index().chunks):
+        saved = quiz_mod.load_quiz(chapter)
+        for q in (saved or {}).get("questions", []):
+            if q["id"] == question_id:
+                return q
+    raise HTTPException(status_code=404, detail=f"unknown question: {question_id}")
 
 
 def _require_index() -> BookSearch:
