@@ -1,7 +1,10 @@
 # BookMind
 
-Ask questions across a book and get answers grounded in **cited passages**, plus a
-**faithfulness evaluation** harness that measures how much the system hallucinates.
+Ask questions across a book and get answers grounded in **cited passages**, with every
+sentence checked against its evidence. Trace an idea through the book chapter by chapter,
+and quiz yourself on a chapter with questions built from its own sentences. A
+**faithfulness evaluation** harness measures how much the system hallucinates, and it all
+runs on a free local model (Ollama) or Claude.
 
 > Built as a from-scratch RAG project: the retriever (BM25) is implemented by hand, not imported,
 > so every part is understood, not magic.
